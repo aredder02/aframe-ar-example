@@ -179,9 +179,26 @@
           
           // Bind the hit test handler method to maintain correct 'this' context
           this.onHitTest = this.onHitTest.bind(this);
+          this.onHitTestStart = this.onHitTestStart.bind(this);
+          this.restoreHitTest = this.restoreHitTest.bind(this);
           
-          // Listen for AR hit test events (fired when user taps on detected surface)
+          // Listen for AR hit test select start event (fired when user starts tapping)
+          this.scene.addEventListener('ar-hit-test-select-start', this.onHitTestStart);
+          
+          // Listen for AR hit test select event (fired when user completes tap)
           this.scene.addEventListener('ar-hit-test-select', this.onHitTest);
+        },
+        
+        /**
+         * Called when user starts tapping on a detected AR surface
+         * Store the hit test reference before it gets cleared
+         */
+        onHitTestStart(event) {
+          var arHitTestComponent = this.scene.components['ar-hit-test'];
+          if (arHitTestComponent) {
+            // Store reference to the viewer hit test so we can restore it
+            this.viewerHitTest = arHitTestComponent.viewerHitTest;
+          }
         },
         
         /**
@@ -213,12 +230,28 @@
           
           // Log spawn info to console for debugging
           console.log(`Spawned ${this.currentType === 'tree' ? 'snowman' : 'pine tree'} #${this.objectCount} at`, position);
+          
+          // Restore the hit test after a brief delay to allow for continuous spawning
+          setTimeout(this.restoreHitTest, 100);
+        },
+        
+        /**
+         * Restores the hit test capability after spawning an object
+         * This allows the user to spawn multiple objects
+         */
+        restoreHitTest() {
+          var arHitTestComponent = this.scene.components['ar-hit-test'];
+          if (arHitTestComponent && this.viewerHitTest) {
+            // Restore the viewer hit test that was cleared by ar-hit-test component
+            arHitTestComponent.hitTest = this.viewerHitTest;
+          }
         },
         
         /**
          * Cleanup when component is removed - prevents memory leaks
          */
         remove() {
+          this.scene.removeEventListener('ar-hit-test-select-start', this.onHitTestStart);
           this.scene.removeEventListener('ar-hit-test-select', this.onHitTest);
         }
       });
