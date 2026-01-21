@@ -2,97 +2,54 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <title>Winter AR Scene • A-Frame</title>
-    <meta name="description" content="Winter AR Scene - Tap to place snowmen and trees">
+    <title>Winter AR World! • A-Frame</title>
+    <meta name="description" content="Winter AR World! • A-Frame">
     <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
     <script>
-      /**
-       * AR HIT TEST SPAWN COMPONENT
-       * Custom A-Frame component that handles AR surface detection and spawns winter objects.
-       * Uses WebXR's native hit-test API to detect real-world surfaces and place virtual objects.
-       * Alternates between spawning snowmen and pine trees with each tap.
-       */
+      AFRAME.registerComponent('follow-shadow', {
+        schema: {type: 'selector'},
+        init() {this.el.object3D.renderOrder = -1;},
+        tick() {
+          if (this.data) {
+            this.el.object3D.position.copy(this.data.object3D.position);
+            this.el.object3D.position.y-=0.001; // stop z-fighting
+          }
+        }
+      });
+
+      // Custom AR hit test component that spawns new objects
       AFRAME.registerComponent('ar-hit-test-spawn', {
-        /**
-         * Initialize the component when it's first attached to the scene
-         * Sets up event listeners and state variables
-         */
         init() {
-          // Store reference to the main A-Frame scene
           this.scene = this.el.sceneEl;
-          
-          // Counter to track how many objects have been spawned
           this.objectCounter = 0;
+          this.objectType = 'snowman'; // Toggle between 'snowman' and 'tree'
           
-          // Track which type of object to spawn next (alternates between 'snowman' and 'tree')
-          this.objectType = 'snowman';
-          
-          // Bind the onSelect method to maintain correct 'this' context
+          // Bind event handler
           this.onSelect = this.onSelect.bind(this);
           
-          /**
-           * EVENT: enter-vr
-           * Fired when the user enters AR/VR mode by clicking the AR button
-           * This is where we set up WebXR hit testing
-           */
+          // Wait for AR mode to be entered
           this.scene.addEventListener('enter-vr', () => {
-            console.log('Entered VR/AR mode');
-            
-            // Check if we're in AR mode (not regular VR)
             if (this.scene.is('ar-mode')) {
-              console.log('AR mode confirmed, setting up hit testing...');
-              
-              // Get the WebXR session from the Three.js renderer
               this.xrSession = this.scene.renderer.xr.getSession();
-              
               if (this.xrSession) {
-                console.log('XR session obtained');
-                
-                // Listen for 'select' events (triggered when user taps the screen)
                 this.xrSession.addEventListener('select', this.onSelect);
-                console.log('Select event listener added');
                 
-                /**
-                 * Set up XR hit test source
-                 * This allows us to detect where the user taps on real-world surfaces
-                 * 
-                 * Step 1: Request a 'viewer' reference space (camera's perspective)
-                 * Step 2: Request a hit test source using that reference space
-                 * The hit test source will continuously check for surface intersections
-                 */
+                // Set up XR hit test source
                 this.xrSession.requestReferenceSpace('viewer').then((refSpace) => {
-                  console.log('Viewer reference space obtained');
                   this.xrViewerSpace = refSpace;
-                  
-                  // Request hit test source - this enables surface detection
                   this.xrSession.requestHitTestSource({ space: this.xrViewerSpace }).then((hitTestSource) => {
                     this.xrHitTestSource = hitTestSource;
-                    console.log('Hit test source created successfully');
-                  }).catch((error) => {
-                    console.error('Failed to create hit test source:', error);
                   });
-                }).catch((error) => {
-                  console.error('Failed to get reference space:', error);
                 });
-              } else {
-                console.error('No XR session available');
               }
             }
           });
           
-          /**
-           * EVENT: exit-vr
-           * Fired when the user exits AR mode
-           * Clean up resources to prevent memory leaks
-           */
           this.scene.addEventListener('exit-vr', () => {
-            // Cancel the hit test source if it exists
             if (this.xrHitTestSource) {
               this.xrHitTestSource.cancel();
               this.xrHitTestSource = null;
             }
-            
-            // Remove the select event listener
             if (this.xrSession) {
               this.xrSession.removeEventListener('select', this.onSelect);
               this.xrSession = null;
@@ -100,248 +57,214 @@
           });
         },
         
-        /**
-         * TICK METHOD
-         * Called every frame (typically 60-90 times per second in AR)
-         * Continuously checks for hit test results to find where the user is pointing
-         */
         tick() {
-          // Exit early if we don't have a hit test source or aren't in AR mode
           if (!this.xrHitTestSource || !this.scene.is('ar-mode')) return;
           
-          // Get the current XR frame (contains pose and hit test data)
           const frame = this.scene.frame;
           if (!frame) return;
           
-          // Query the hit test source for results (where the device is pointing at surfaces)
           const hitTestResults = frame.getHitTestResults(this.xrHitTestSource);
-          
-          // If we detected a surface
           if (hitTestResults.length > 0) {
-            // Get the first (closest) hit result
             const hit = hitTestResults[0];
-            
-            // Get the pose (position and orientation) of the hit point in 3D space
             const pose = hit.getPose(this.scene.renderer.xr.getReferenceSpace());
             
-            // Store the pose so we can use it when the user taps
             if (pose) {
               this.lastHitPose = pose;
             }
           }
         },
         
-        /**
-         * ON SELECT METHOD
-         * Called when the user taps the screen in AR mode
-         * Creates and spawns a new snowman or pine tree at the tapped location
-         */
         onSelect() {
-          console.log('Select event fired!');
+          if (!this.lastHitPose) return;
           
-          // Exit if we don't have a valid hit pose (no surface detected)
-          if (!this.lastHitPose) {
-            console.warn('No hit pose available - no surface detected');
-            return;
-          }
-          
-          console.log('Hit pose available, spawning object...');
-          
-          // Extract the 3D position from the hit pose
           const position = this.lastHitPose.transform.position;
-          console.log('Position:', position.x, position.y, position.z);
           
-          // Create a new container entity to hold the snowman or tree
+          // Create new object at hit location
           const container = document.createElement('a-entity');
           container.setAttribute('position', `${position.x} ${position.y} ${position.z}`);
-          container.setAttribute('scale', '0.15 0.15 0.15'); // Scale down to appropriate AR size
           
-          // Alternate between spawning snowman and tree
+          // Alternate between snowman and tree
           if (this.objectType === 'snowman') {
-            // Create a snowman in the container
             this.createSnowman(container);
-            console.log('Spawned snowman #' + (this.objectCounter + 1));
-            
-            // Next tap will spawn a tree
             this.objectType = 'tree';
           } else {
-            // Create a pine tree in the container
             this.createTree(container);
-            console.log('Spawned pine tree #' + (this.objectCounter + 1));
-            
-            // Next tap will spawn a snowman
             this.objectType = 'snowman';
           }
           
-          // Add the container (with snowman or tree) to the scene
           this.scene.appendChild(container);
-          console.log('Object added to scene');
-          
-          // Increment the counter
           this.objectCounter++;
         },
         
-        /**
-         * CREATE SNOWMAN METHOD
-         * Procedurally generates a snowman using basic 3D shapes
-         * @param {HTMLElement} container - The parent entity to attach snowman parts to
-         */
         createSnowman(container) {
-          // Bottom sphere (largest) - base of the snowman
-          const bottom = document.createElement('a-sphere');
-          bottom.setAttribute('radius', '0.6');
-          bottom.setAttribute('position', '0 0.6 0');
-          bottom.setAttribute('color', '#FFFFFF'); // White
-          bottom.setAttribute('shadow', 'cast: true'); // Enable shadow casting
-          container.appendChild(bottom);
+          const snowman = document.createElement('a-entity');
+          snowman.setAttribute('scale', '0.15 0.15 0.15');
           
-          // Middle sphere (medium) - torso
+          // Bottom sphere
+          const bottom = document.createElement('a-sphere');
+          bottom.setAttribute('radius', '1');
+          bottom.setAttribute('position', '0 0.5 0');
+          bottom.setAttribute('color', '#FFFFFF');
+          bottom.setAttribute('shadow', 'cast: true');
+          snowman.appendChild(bottom);
+          
+          // Middle sphere
           const middle = document.createElement('a-sphere');
-          middle.setAttribute('radius', '0.45');
-          middle.setAttribute('position', '0 1.4 0');
+          middle.setAttribute('radius', '0.75');
+          middle.setAttribute('position', '0 1.7 0');
           middle.setAttribute('color', '#FFFFFF');
           middle.setAttribute('shadow', 'cast: true');
-          container.appendChild(middle);
+          snowman.appendChild(middle);
           
-          // Head sphere (smallest) - the head
+          // Top sphere (head)
           const head = document.createElement('a-sphere');
-          head.setAttribute('radius', '0.3');
-          head.setAttribute('position', '0 2 0');
+          head.setAttribute('radius', '0.5');
+          head.setAttribute('position', '0 2.6 0');
           head.setAttribute('color', '#FFFFFF');
           head.setAttribute('shadow', 'cast: true');
-          container.appendChild(head);
+          snowman.appendChild(head);
           
-          // Left eye - small black sphere
-          const leftEye = document.createElement('a-sphere');
-          leftEye.setAttribute('radius', '0.05');
-          leftEye.setAttribute('position', '-0.1 2.05 0.25'); // Positioned on left side of face
-          leftEye.setAttribute('color', '#000000'); // Black
-          container.appendChild(leftEye);
-          
-          // Right eye - small black sphere
-          const rightEye = document.createElement('a-sphere');
-          rightEye.setAttribute('radius', '0.05');
-          rightEye.setAttribute('position', '0.1 2.05 0.25'); // Positioned on right side of face
-          rightEye.setAttribute('color', '#000000');
-          container.appendChild(rightEye);
-          
-          // Carrot nose - orange cone rotated to point forward
+          // Carrot nose
           const nose = document.createElement('a-cone');
-          nose.setAttribute('radius-bottom', '0.05');
-          nose.setAttribute('radius-top', '0');
-          nose.setAttribute('height', '0.2');
-          nose.setAttribute('position', '0 1.95 0.35'); // In front of the face
-          nose.setAttribute('rotation', '90 0 0'); // Rotate 90 degrees to point outward
-          nose.setAttribute('color', '#FF6347'); // Tomato orange/red
-          container.appendChild(nose);
+          nose.setAttribute('radius-bottom', '0.1');
+          nose.setAttribute('radius-top', '0.01');
+          nose.setAttribute('height', '0.4');
+          nose.setAttribute('position', '0 2.6 0.5');
+          nose.setAttribute('rotation', '90 0 0');
+          nose.setAttribute('color', '#FF6347');
+          snowman.appendChild(nose);
           
-          // Button 1 (top button) - coal button on torso
-          const button1 = document.createElement('a-sphere');
-          button1.setAttribute('radius', '0.06');
-          button1.setAttribute('position', '0 1.5 0.42'); // On front of torso
-          button1.setAttribute('color', '#000000');
-          container.appendChild(button1);
+          // Eyes
+          const leftEye = document.createElement('a-sphere');
+          leftEye.setAttribute('radius', '0.08');
+          leftEye.setAttribute('position', '-0.15 2.7 0.45');
+          leftEye.setAttribute('color', '#000000');
+          snowman.appendChild(leftEye);
           
-          // Button 2 (bottom button) - coal button on torso
-          const button2 = document.createElement('a-sphere');
-          button2.setAttribute('radius', '0.06');
-          button2.setAttribute('position', '0 1.3 0.43');
-          button2.setAttribute('color', '#000000');
-          container.appendChild(button2);
+          const rightEye = document.createElement('a-sphere');
+          rightEye.setAttribute('radius', '0.08');
+          rightEye.setAttribute('position', '0.15 2.7 0.45');
+          rightEye.setAttribute('color', '#000000');
+          snowman.appendChild(rightEye);
           
-          // Hat brim - flat black cylinder (wider)
-          const hatBrim = document.createElement('a-cylinder');
-          hatBrim.setAttribute('radius', '0.35');
-          hatBrim.setAttribute('height', '0.1');
-          hatBrim.setAttribute('position', '0 2.4 0'); // On top of head
-          hatBrim.setAttribute('color', '#000000');
-          container.appendChild(hatBrim);
+          // Buttons
+          for (let i = 0; i < 3; i++) {
+            const button = document.createElement('a-sphere');
+            button.setAttribute('radius', '0.1');
+            button.setAttribute('position', `0 ${1.7 - i * 0.3} 0.75`);
+            button.setAttribute('color', '#000000');
+            snowman.appendChild(button);
+          }
           
-          // Hat top - tall black cylinder (narrower) - classic top hat
-          const hatTop = document.createElement('a-cylinder');
-          hatTop.setAttribute('radius', '0.2');
-          hatTop.setAttribute('height', '0.5');
-          hatTop.setAttribute('position', '0 2.7 0'); // Stacked on top of brim
+          // Hat (red cone)
+          const hat = document.createElement('a-cone');
+          hat.setAttribute('radius-bottom', '0.4');
+          hat.setAttribute('radius-top', '0.1');
+          hat.setAttribute('height', '1.1');
+          hat.setAttribute('position', '0 3.4 0');
+          hat.setAttribute('color', 'red');
+          hat.setAttribute('shadow', 'cast: true');
+          snowman.appendChild(hat);
+          
+          // Hat top (black sphere)
+          const hatTop = document.createElement('a-sphere');
+          hatTop.setAttribute('radius', '0.10');
+          hatTop.setAttribute('position', '0 4.1 0');
           hatTop.setAttribute('color', '#000000');
-          container.appendChild(hatTop);
+          snowman.appendChild(hatTop);
+          
+          container.appendChild(snowman);
         },
         
-        /**
-         * CREATE TREE METHOD
-         * Procedurally generates a pine tree with trunk, foliage tiers, and star
-         * @param {HTMLElement} container - The parent entity to attach tree parts to
-         */
         createTree(container) {
-          // Trunk - brown cylinder at the base
+          const tree = document.createElement('a-entity');
+          tree.setAttribute('scale', '0.15 0.15 0.15');
+          
+          // Trunk
           const trunk = document.createElement('a-cylinder');
-          trunk.setAttribute('radius', '0.15');
-          trunk.setAttribute('height', '0.6');
-          trunk.setAttribute('position', '0 0.3 0');
-          trunk.setAttribute('color', '#8B4513'); // Saddle brown
+          trunk.setAttribute('radius', '0.2');
+          trunk.setAttribute('height', '1.5');
+          trunk.setAttribute('position', '0 0.75 0');
+          trunk.setAttribute('color', '#FFC65D');
           trunk.setAttribute('shadow', 'cast: true');
-          container.appendChild(trunk);
+          tree.appendChild(trunk);
           
-          // Bottom tier - largest green cone (darkest green)
-          const bottomTier = document.createElement('a-cone');
-          bottomTier.setAttribute('radius-bottom', '0.8');
-          bottomTier.setAttribute('radius-top', '0'); // Pointy top
-          bottomTier.setAttribute('height', '1');
-          bottomTier.setAttribute('position', '0 0.8 0');
-          bottomTier.setAttribute('color', '#228B22'); // Forest green
-          bottomTier.setAttribute('shadow', 'cast: true');
-          container.appendChild(bottomTier);
+          // Tree foliage (4 cones stacked)
+          const coneHeights = [2, 1.8, 1.6, 1.4];
+          const coneYPositions = [2.2, 3.2, 4, 4.8];
           
-          // Middle tier - medium green cone
-          const middleTier = document.createElement('a-cone');
-          middleTier.setAttribute('radius-bottom', '0.6');
-          middleTier.setAttribute('radius-top', '0');
-          middleTier.setAttribute('height', '0.8');
-          middleTier.setAttribute('position', '0 1.4 0');
-          middleTier.setAttribute('color', '#2E8B57'); // Sea green
-          middleTier.setAttribute('shadow', 'cast: true');
-          container.appendChild(middleTier);
+          for (let i = 0; i < 4; i++) {
+            const cone = document.createElement('a-cone');
+            cone.setAttribute('radius-bottom', `${1.2 - i * 0.2}`);
+            cone.setAttribute('radius-top', '0.1');
+            cone.setAttribute('height', coneHeights[i]);
+            cone.setAttribute('position', `0 ${coneYPositions[i]} 0`);
+            cone.setAttribute('color', '#0B6623');
+            cone.setAttribute('shadow', 'cast: true');
+            tree.appendChild(cone);
+          }
           
-          // Top tier - smallest green cone (lightest green)
-          const topTier = document.createElement('a-cone');
-          topTier.setAttribute('radius-bottom', '0.4');
-          topTier.setAttribute('radius-top', '0');
-          topTier.setAttribute('height', '0.6');
-          topTier.setAttribute('position', '0 1.9 0');
-          topTier.setAttribute('color', '#32CD32'); // Lime green
-          topTier.setAttribute('shadow', 'cast: true');
-          container.appendChild(topTier);
+          // Star on top (red)
+          const star = document.createElement('a-sphere');
+          star.setAttribute('radius', '0.10');
+          star.setAttribute('position', '0 5.6 0');
+          star.setAttribute('color', '#EF2D5E');
+          tree.appendChild(star);
           
-          // Star on top - gold octahedron (8-sided diamond shape)
-          const star = document.createElement('a-octahedron');
-          star.setAttribute('radius', '0.1');
-          star.setAttribute('position', '0 2.3 0'); // At the very top
-          star.setAttribute('color', '#FFD700'); // Gold
-          container.appendChild(star);
+          container.appendChild(tree);
         }
       });
     </script>
   </head>
   <body>
-    <!-- 
-      A-FRAME SCENE
-      Main AR scene configuration with lighting, camera, and sky
-    -->
     <a-scene
+      reflection="directionalLight: a-light[type=directional]"
       ar-hit-test-spawn
-      webxr="optionalFeatures: hit-test;"
       renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
       shadow="type: pcfsoft"
       xr-mode-ui="XRMode: xr"
     >
-      <!-- Directional light - simulates sunlight, casts shadows for realism -->
       <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57"></a-light>
-      
-      <!-- AR Camera - positioned at typical user height (0.4m off ground) -->
-      <!-- wasd-controls allow desktop testing with keyboard -->
       <a-camera position="0 0.4 0" wasd-controls="acceleration:10;"></a-camera>
       
-      <!-- Sky - light blue background, automatically hidden when entering AR mode -->
-      <a-sky color="#87CEEB" hide-on-enter-ar></a-sky>
+      
+  
+      <a-entity id="preview-objects" position="0 0 -1">
+        
+        <a-entity id="objects" scale="0.15 0.15 0.15" position="0.6 0 -1" shadow>
+          <a-box position="-1 0.5 1" rotation="0 45 0" color="#4CC3D9"></a-box>
+          <a-sphere position="0 1.25 -1" radius="1.25" color="#EF2D5E"></a-sphere>
+          <a-cylinder position="1 0.75 1" radius="0.5" height="1.5" color="#FFC65D"></a-cylinder>
+        </a-entity>
+
+         <!-- Snowman -->
+        <a-entity scale="0.15 0.15 0.15" position="-0.5 0 -1" >
+          <a-sphere radius="1" position="0 0.5 0" color="#FFFFFF" shadow="cast: true"></a-sphere>
+          <a-sphere radius="0.75" position="0 1.7 0" color="#FFFFFF" shadow="cast: true"></a-sphere>
+          <a-sphere radius="0.5" position="0 2.6 0" color="#FFFFFF" shadow="cast: true"></a-sphere>
+          <a-cone radius-bottom="0.1" radius-top="0.01" height="0.4" position="0 2.6 0.5" rotation="90 0 0" color="#FF6347"></a-cone>
+          <a-sphere radius="0.08" position="-0.15 2.7 0.45" color="#000000"></a-sphere>
+          <a-sphere radius="0.08" position="0.15 2.7 0.45" color="#000000"></a-sphere>
+          <a-sphere radius="0.1" position="0 1.7 0.75" color="#000000"></a-sphere>
+          <a-sphere radius="0.1" position="0 1.4 0.75" color="#000000"></a-sphere>
+          <a-sphere radius="0.1" position="0 1.1 0.75" color="#000000"></a-sphere>
+          <a-cone radius-bottom="0.4" radius-top="0.1" height="1.1" position="0 3.4 0" color="red" shadow="cast: true"></a-cone>
+          <a-sphere radius="0.10" position="0 4.1 0" color="#000000"></a-sphere>
+        </a-entity>
+        
+        <!-- Pine Tree -->
+        <a-entity scale="0.15 0.15 0.15" position="0 0 -1" >
+          <a-cylinder radius="0.2" height="1.5" position="0 0.75 0" color="#FFC65D" shadow="cast: true"></a-cylinder>
+          <a-cone radius-bottom="1.2" radius-top="0.1" height="2" position="0 2.2 0" color="#0B6623" shadow="cast: true"></a-cone>
+          <a-cone radius-bottom="1.0" radius-top="0.1" height="1.8" position="0 3.2 0" color="#0B6623" shadow="cast: true"></a-cone>
+          <a-cone radius-bottom="0.8" radius-top="0.1" height="1.6" position="0 4 0" color="#0B6623" shadow="cast: true"></a-cone>
+          <a-cone radius-bottom="0.6" radius-top="0.1" height="1.4" position="0 4.8 0" color="#0B6623" shadow="cast: true"></a-cone>
+          <a-sphere radius="0.10" position="0 5.6 0" color="#EF2D5E"></a-sphere>
+        </a-entity>
+      </a-entity>
+      
+      <a-plane material="shader:shadow" shadow="cast:false;" rotation="-90 0 0" width="4" height="4" position="0 0 -1.5"></a-plane>
+      <a-sky color="#E0F6FF" hide-on-enter-ar></a-sky>
     </a-scene>
   </body>
 </html>
