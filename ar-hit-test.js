@@ -357,20 +357,39 @@ export var Component = register('ar-hit-test', {
         if (this.hasPosedOnce === true) {
           this.bboxMesh.visible = false;
 
-          // if we have a target with a 3D object then automatically generate an anchor for it.
-          if (this.data.target) {
-            object = this.data.target.object3D;
-
-            if (object) {
-              applyPose.tempFakePose.transform.position.copy(this.bboxMesh.position);
-              applyPose.tempFakePose.transform.orientation.copy(this.bboxMesh.quaternion);
-              applyPose(applyPose.tempFakePose, object, this.bboxOffset);
-              object.visible = true;
-
-              // create an anchor attached to the object
-              this.hitTest.anchorFromLastHitTestResult(object, this.bboxOffset);
-            }
+          // MODIFIED: Spawn new snowman or pine tree instead of moving target
+          var container = document.getElementById('spawn-container');
+          if (!container) {
+            container = document.createElement('a-entity');
+            container.setAttribute('id', 'spawn-container');
+            this.el.appendChild(container);
           }
+          
+          // Initialize spawn counter if not exists
+          if (typeof this.spawnCount === 'undefined') {
+            this.spawnCount = 0;
+          }
+          
+          // Create new entity at hit position
+          var newEntity = document.createElement('a-entity');
+          newEntity.setAttribute('position', this.bboxMesh.position.x + ' ' + this.bboxMesh.position.y + ' ' + this.bboxMesh.position.z);
+          newEntity.setAttribute('scale', '0.15 0.15 0.15');
+          newEntity.setAttribute('shadow', 'cast: true; receive: false');
+          
+          // Alternate between snowman and pine tree
+          if (this.spawnCount % 2 === 0) {
+            newEntity.setAttribute('snowman', '');
+            console.log('Spawned snowman #' + (this.spawnCount + 1));
+          } else {
+            newEntity.setAttribute('pine-tree', '');
+            console.log('Spawned pine tree #' + (this.spawnCount + 1));
+          }
+          
+          container.appendChild(newEntity);
+          this.spawnCount++;
+          
+          // Create anchor for the spawned object
+          this.hitTest.anchorFromLastHitTestResult(newEntity.object3D, new THREE.Vector3(0, 0, 0));
 
           this.el.emit('ar-hit-test-select', {
             inputSource: inputSource,
@@ -378,7 +397,11 @@ export var Component = register('ar-hit-test', {
             orientation: this.bboxMesh.quaternion
           });
 
-          this.hitTest = null;
+          // MODIFIED: Restore hitTest instead of setting to null to allow continuous spawning
+          var viewerHitTest = this.viewerHitTest;
+          setTimeout(function() {
+            this.hitTest = viewerHitTest;
+          }.bind(this), 100);
         }
       }.bind(this));
     }.bind(this));

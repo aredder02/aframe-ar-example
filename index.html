@@ -6,6 +6,8 @@
     <meta name="description" content="Winter AR Scene - Tap to place snowmen and trees">
     <!-- Load A-Frame library for creating WebXR/AR experiences -->
     <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+    <!-- Load modified ar-hit-test component for spawning objects -->
+    <script type="module" src="ar-hit-test.js"></script>
     <!-- script src="https://aframe.io/aframe/dist/aframe-master.min.js"></script -->
     <script>
       /**
@@ -260,10 +262,9 @@
   <body>
     <!-- 
       A-FRAME SCENE CONFIGURATION
-      Main AR scene with custom spawn behavior and optimized rendering
+      Main AR scene - spawning handled by modified ar-hit-test component
     -->
     <a-scene
-      spawn-on-tap
       ar-hit-test="enabled: true;"
       webxr="optionalFeatures: hit-test, anchors;"
       renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
