@@ -19,50 +19,14 @@
 
       AFRAME.registerComponent('spawn-on-tap', {
         init: function() {
-          console.log('spawn-on-tap component initialized');
-          
-          // Create debug text element
-          this.debugText = document.createElement('div');
-          this.debugText.style.position = 'fixed';
-          this.debugText.style.top = '10px';
-          this.debugText.style.left = '10px';
-          this.debugText.style.color = 'white';
-          this.debugText.style.backgroundColor = 'rgba(0,0,0,0.7)';
-          this.debugText.style.padding = '10px';
-          this.debugText.style.fontFamily = 'Arial';
-          this.debugText.style.fontSize = '14px';
-          this.debugText.style.zIndex = '9999';
-          this.debugText.innerHTML = 'Waiting for tap...';
-          document.body.appendChild(this.debugText);
-          
-          // Counter for taps
-          this.tapCount = 0;
-          
           this.el.addEventListener('ar-hit-test-select', (e) => {
-            this.tapCount++;
-            console.log('ar-hit-test-select event fired! Count:', this.tapCount);
-            this.debugText.innerHTML = `Tap detected! Count: ${this.tapCount}<br>Position: ${e.detail.position.x.toFixed(2)}, ${e.detail.position.y.toFixed(2)}, ${e.detail.position.z.toFixed(2)}`;
-            
             // Randomly choose between snowman and pine tree
             const random = Math.random();
             if (random < 0.5) {
               this.spawnSnowman(e);
-              console.log('Spawning snowman');
             } else {
               this.spawnPineTree(e);
-              console.log('Spawning pine tree');
             }
-          });
-          
-          // Also listen for other events to debug
-          this.el.addEventListener('ar-hit-test-start', () => {
-            console.log('ar-hit-test-start event fired');
-            this.debugText.innerHTML = 'AR Hit Test Started!';
-          });
-          
-          this.el.addEventListener('ar-hit-test-achieved', () => {
-            console.log('ar-hit-test-achieved event fired');
-            this.debugText.innerHTML = 'AR Hit Test Achieved! Tap to spawn objects';
           });
         },
         
