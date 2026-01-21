@@ -5,6 +5,7 @@
     <title>AR Spawner – Snowman & Tree</title>
 
     <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-ar@3.4.0/dist/aframe-ar.min.js"></script>
 
     <style>
       #toggleBtn {
@@ -27,7 +28,7 @@
         schema: { mode: { default: 'snowman' } },
 
         init() {
-          this.sceneEl.addEventListener('click', () => this.spawn());
+          this.el.sceneEl.addEventListener('click', () => this.spawn());
           window.toggleSpawnMode = () => this.toggle();
         },
 
@@ -38,7 +39,7 @@
         },
 
         spawn() {
-          const hitTest = this.sceneEl.components['ar-hit-test'];
+          const hitTest = this.el.sceneEl.components['ar-hit-test'];
           if (!hitTest || !hitTest.lastHit) return;
 
           const { position, rotation } = hitTest.lastHit;
@@ -55,7 +56,7 @@
           wrapper.setAttribute('shadow', '');
 
           wrapper.appendChild(template.cloneNode(true));
-          this.sceneEl.appendChild(wrapper);
+          this.el.sceneEl.appendChild(wrapper);
         }
       });
     </script>
@@ -75,7 +76,7 @@
       xr-mode-ui="XRMode: xr">
 
       <!-- Lighting -->
-      <a-light type="directional" castShadow intensity="1.5" position="1 2 1"></a-light>
+      <a-light type="directional" castshadow intensity="1.5" position="1 2 1"></a-light>
       <a-light type="ambient" intensity="0.4"></a-light>
 
       <a-camera position="0 0.4 0"></a-camera>
