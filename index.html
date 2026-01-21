@@ -36,14 +36,21 @@
            * This is where we set up WebXR hit testing
            */
           this.scene.addEventListener('enter-vr', () => {
+            console.log('Entered VR/AR mode');
+            
             // Check if we're in AR mode (not regular VR)
             if (this.scene.is('ar-mode')) {
+              console.log('AR mode confirmed, setting up hit testing...');
+              
               // Get the WebXR session from the Three.js renderer
               this.xrSession = this.scene.renderer.xr.getSession();
               
               if (this.xrSession) {
+                console.log('XR session obtained');
+                
                 // Listen for 'select' events (triggered when user taps the screen)
                 this.xrSession.addEventListener('select', this.onSelect);
+                console.log('Select event listener added');
                 
                 /**
                  * Set up XR hit test source
@@ -54,13 +61,21 @@
                  * The hit test source will continuously check for surface intersections
                  */
                 this.xrSession.requestReferenceSpace('viewer').then((refSpace) => {
+                  console.log('Viewer reference space obtained');
                   this.xrViewerSpace = refSpace;
                   
                   // Request hit test source - this enables surface detection
                   this.xrSession.requestHitTestSource({ space: this.xrViewerSpace }).then((hitTestSource) => {
                     this.xrHitTestSource = hitTestSource;
+                    console.log('Hit test source created successfully');
+                  }).catch((error) => {
+                    console.error('Failed to create hit test source:', error);
                   });
+                }).catch((error) => {
+                  console.error('Failed to get reference space:', error);
                 });
+              } else {
+                console.error('No XR session available');
               }
             }
           });
@@ -122,11 +137,19 @@
          * Creates and spawns a new snowman or pine tree at the tapped location
          */
         onSelect() {
+          console.log('Select event fired!');
+          
           // Exit if we don't have a valid hit pose (no surface detected)
-          if (!this.lastHitPose) return;
+          if (!this.lastHitPose) {
+            console.warn('No hit pose available - no surface detected');
+            return;
+          }
+          
+          console.log('Hit pose available, spawning object...');
           
           // Extract the 3D position from the hit pose
           const position = this.lastHitPose.transform.position;
+          console.log('Position:', position.x, position.y, position.z);
           
           // Create a new container entity to hold the snowman or tree
           const container = document.createElement('a-entity');
@@ -152,6 +175,7 @@
           
           // Add the container (with snowman or tree) to the scene
           this.scene.appendChild(container);
+          console.log('Object added to scene');
           
           // Increment the counter
           this.objectCounter++;
@@ -304,6 +328,7 @@
     -->
     <a-scene
       ar-hit-test-spawn
+      webxr="requiredFeatures: hit-test;"
       renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
       shadow="type: pcfsoft"
       xr-mode-ui="XRMode: xr"
