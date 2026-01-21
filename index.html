@@ -21,14 +21,14 @@
   <body>
     <a-scene
       reflection="directionalLight: a-light[type=directional]"
-      ar-hit-test="target: #objects;"
+      ar-hit-test="target: #objects; type: footprint;"
       renderer="colorManagement: true; exposure: 1; toneMapping: ACESFilmic"
       shadow="type: pcfsoft"
       xr-mode-ui="XRMode: xr"
     >
       <a-light type="directional" light="castShadow:true;" position="1 1 1" intensity="1.57" shadow-camera-automatic="#objects"></a-light>
-      <a-camera position="0 0.4 0" wasd-controls="acceleration:10;"></a-camera>
-      <a-entity id="objects" scale="0.15 0.15 0.15" position="0 0 -1" shadow>
+      <a-camera position="0 1.6 0" wasd-controls="enabled: false;"></a-camera>
+      <a-entity id="objects" scale="0.15 0.15 0.15" position="0 0 -0.5" shadow>
         <!-- Snowman 1 -->
         <a-entity position="-2 0 0">
           <!-- Bottom sphere -->
