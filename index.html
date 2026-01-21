@@ -28,7 +28,7 @@
         schema: { mode: { default: 'snowman' } },
 
         init() {
-          this.sceneEl.addEventListener('click', () => this.spawn());
+          this.el.sceneEl.addEventListener('click', () => this.spawn());
           window.toggleSpawnMode = () => this.toggle();
         },
 
@@ -39,7 +39,7 @@
         },
 
         spawn() {
-          const hitTest = this.sceneEl.components['ar-hit-test'];
+          const hitTest = this.el.sceneEl.components['ar-hit-test'];
           if (!hitTest || !hitTest.lastHit) return;
 
           const { position, rotation } = hitTest.lastHit;
@@ -56,7 +56,7 @@
           wrapper.setAttribute('shadow', '');
 
           wrapper.appendChild(template.cloneNode(true));
-          this.sceneEl.appendChild(wrapper);
+          this.el.sceneEl.appendChild(wrapper);
         }
       });
     </script>
